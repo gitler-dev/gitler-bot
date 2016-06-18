@@ -17,14 +17,17 @@ handler.on('push', function (event) {
   //RECEIVED PUSH EVENT
   var reposDir = "repos";
   var repoName = event.payload.repository.name;
+  var repoPath = reposDir + "/" + repoName;
 
   console.log('Received a push event for %s to %s', repoName, event.payload.ref);
+
+  debugger
 
   var fs = require('fs');
   var simpleGit = require('simple-git')( reposDir );
 
   //Check if repository is cloned
-  fs.access(reposDir + "/" + repoName, fs.F_OK, function(err) {
+  fs.access(repoPath, fs.F_OK, function(err) {
       if (!err) {
             // repo exists - pull
             simpleGit.pull(event.payload.repository.html_url + ".git", localPath, function(){});
