@@ -19,6 +19,7 @@ handler.on('push', function (event) {
 
   console.log('Received a push event for %s to %s', repoName, event.payload.ref);
   debugger
+  console.log("yooooooo");
 
 
   var fs = require('fs');
