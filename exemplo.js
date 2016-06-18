@@ -18,7 +18,6 @@ handler.on('push', function (event) {
   var repoName = event.payload.repository.name
 
   console.log('Received a push event for %s to %s', repoName, event.payload.ref);
-  debugger
   console.log("yooooooo");
 
 
