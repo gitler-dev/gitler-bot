@@ -1,13 +1,31 @@
-var simpleGit = require('simple-git-factory')
+var simpleGit = require('simple-git')
 
-simpleGit.filesChangedHead = function(then){
+var diffSummary = require('./node_modules/simple-git/src/DiffSummary.js')
+
+var repoDir
+
+
+
+var filesChangedHead = function(then){
   return this.filesChanged('HEAD','HEAD~1',then);
 }
 
-simpleGit.filesChanged = function(sha1, sha2, then) {
+var filesChanged = function(sha1, sha2, then) {
   return this.diff(['--stat',sha1,sha2], function (err, data) {
-     then && then(err, !err && require('./DiffSummary').parse(data));
+     then && then(err, !err && diffSummary.parse(data));
   });
 }
 
-module.exports = simpleGit;
+function init(_repoDir) {
+	repoDir = _repoDir
+	var me = simpleGit(repoDir)
+	me.filesChangedFromGit = filesChangedHead
+	me.filesChanged = filesChanged
+
+	debugger
+
+	return me
+}
+
+
+module.exports = init;
