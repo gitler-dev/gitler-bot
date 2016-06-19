@@ -13,6 +13,7 @@ function getFilesChangedFromGit(repoDir, ref1, ref2) {
 			
 			if (!diff) rej("no")
 			var filesMap = _.map(diff.files, function(file){
+				
 				return {file: file.file, body: fs.readFileSync(repoDir + '/' + file.file, "utf-8")}
 	        })
 			

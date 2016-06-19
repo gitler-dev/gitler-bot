@@ -108,21 +108,23 @@ controller.hears('^stop','direct_message',function(bot,message) {
 
 var testFunc = function(bot,message) {
   var LintStream = require('jslint').LintStream();
-  LintStream.on('data', function (chunk, encoding, callback) {
-    errors = []
 
-    bot.startConversation(message, function(err, conv){
+  bot.startConversation(message, function(err, conv){
+    LintStream.on('data', function (chunk, encoding, callback) {
+      errors = []
+
       _(chunk.linted.errors).map(function(e){ 
         if (!e || !e.reason) return false; 
+        debugger
         return {reason: e.reason, evidence: e.evidence} 
       }).forEach(function(e){
         errors.push("evidence :" + e.evidence + "\nreason :" + e.reason )
       })
 
-      conv.say("We have " + errors.length + " errors for you. Here's the first 10")
+      conv.say("We have " + errors.length + " errors for you. Here's the first")
 
       if (errors.length > 10)
-        errors = errors.slice(0, 9)
+        errors = errors.slice(0, 10)
 
       errors.forEach(function(e){
         conv.say(e)
@@ -134,25 +136,28 @@ var testFunc = function(bot,message) {
         askConv.say(response.text + "? I don't care either way, go fuck yourself")
         askConv.next()
       })
+
+    
+      
+      if (callback)
+        callback()
+      
+
+
+    });
+    
+    gitcli.getFilesChangedFromGit(__dirname, "HEAD", "HEAD~1").then(function(files){
+      conv.say("Here's the files you committed:")
+
+      files.forEach(function(e){
+        conv.say(e.file)
+      })
+      conv.say("Here's the errors for the first file:")
   
+      LintStream.write(files[0])
     })
-    
-    if (callback)
-      callback()
-    
-
-
-  });
   
-  gitcli.getFilesChangedFromGit(__dirname, "HEAD", "HEAD~1").then(function(files){
-
-    files.forEach(function(e){
-      //LintStream.write(e)  
-    })  
-    LintStream.write(files[0])
   })
-  
-  
   
   
 }
