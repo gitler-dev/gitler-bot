@@ -1,16 +1,16 @@
-var http = require('http')
-var createHandler = require('github-webhook-handler')
-var handler = createHandler({ path: '/webhook', secret: 'myhashsecret' })
+var http = require('http');
+var createHandler = require('github-webhook-handler');
+var handler = createHandler({ path: '/webhook', secret: 'myhashsecret' });
 
 http.createServer(function (req, res) {
   handler(req, res, function (err) {
-    res.statusCode = 404
-    res.end('no such location')
+    res.statusCode = 404;
+    res.end('no such location');
   })
-}).listen(4567)
+}).listen(4567);
 
 handler.on('error', function (err) {
-  console.error('Error:', err.message)
+  console.error('Error:', err.message);
 })
 
 handler.on('push', function (event) {
@@ -18,24 +18,55 @@ handler.on('push', function (event) {
   var reposDir = "repos";
   var repoName = event.payload.repository.name;
   var repoPath = reposDir + "/" + repoName;
+  var repoRef = event.payload.ref;
+  var repoGitUrl = event.payload.repository.html_url + ".git";
+  var repoBranch = repoRef.substr(repoRef.lastIndexOf("/")+1,repoRef.length);
 
-  console.log('Received a push event for %s to %s', repoName, event.payload.ref);
+  console.log('Received a push event for %s to %s', repoName, repoRef );
 
-  debugger
 
   var fs = require('fs');
   var simpleGit = require('simple-git')( reposDir );
 
   //Check if repository is cloned
   fs.access(repoPath, fs.F_OK, function(err) {
-      if (!err) {
-            // repo exists - pull
-            simpleGit.pull(event.payload.repository.html_url + ".git", localPath, function(){});
-        } else {
-            // repo does not exist - clone
-            simpleGit.clone(event.payload.repository.html_url + ".git", localPath, function(){});
-        }
-    });
+    if (!err) {
+          // repo exists
+          console.log("git repotory exists");
+
+          //chdir
+          process.chdir(repoName);
+
+          //checkout
+          console.log("checking out " + repoBranch);
+          simpleGit.checkout( repoBranch ,  function(){});
+
+          //pull
+          console.log("pulling from origin " + repoBranch)
+          simpleGit.pull( "origin" , repoBranch ,  function(){});
+
+      } else {
+          // repo does not exist
+          console.log("git repotory does not exists");
+
+          //chdir
+          process.chdir(repoName);
+
+          //clone
+          console.log("cloning repository: " + repoGitUrl);
+          simpleGit.clone(repoGitUrl, localPath, function(){});
+
+          //checkout
+          console.log("checking out " + repoBranch);
+          simpleGit.checkout( repoBranch,  function(){});
+
+          //pull
+          console.log("pulling from origin " + repoBranch);
+          simpleGit.pull( "origin" , repoBranch ,  function(){});
+      }
+  });
+
+
 })
 
 handler.on('issues', function (event) {
