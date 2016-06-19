@@ -1,6 +1,8 @@
 var http = require('http');
 var createHandler = require('github-webhook-handler');
 var handler = createHandler({ path: '/webhook', secret: 'myhashsecret' });
+var fs = require('fs');
+var process = require("process");
 
 http.createServer(function (req, res) {
   handler(req, res, function (err) {
@@ -11,7 +13,7 @@ http.createServer(function (req, res) {
 
 handler.on('error', function (err) {
   console.error('Error:', err.message);
-})
+});
 
 handler.on('push', function (event) {
   //RECEIVED PUSH EVENT
@@ -24,11 +26,21 @@ handler.on('push', function (event) {
 
   console.log('Received a push event for %s to %s', repoName, repoRef );
 
-
-  var fs = require('fs');
   var simpleGit = require('simple-git')( reposDir );
 
-  //Check if repository is cloned
+
+  //check if repos folder exists
+  fs.access(reposDir, fs.F_OK, function(err) {
+    if (err) {
+          // repos folder doesnt exist, create it
+          var mkdirp = require('mkdirp');
+          mkdirp(reposDir, function(err) {});
+      }
+  });
+  //chdir to repos dir
+  process.chdir(reposDir);
+
+  //Check if repository is clone
   fs.access(repoPath, fs.F_OK, function(err) {
     if (!err) {
           // repo exists
@@ -74,7 +86,7 @@ handler.on('issues', function (event) {
     event.payload.repository.name,
     event.payload.action,
     event.payload.issue.number,
-    event.payload.issue.title)
+    event.payload.issue.title);
 })
 
 console.log("listening for webhooks...");
