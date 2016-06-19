@@ -63,7 +63,7 @@ handler.on('push', function (event) {
 
           //clone
           console.log("cloning repository: " + repoGitUrl);
-          simpleGit.clone(repoGitUrl, localPath, function(){});
+          simpleGit.clone(repoGitUrl, repoName, function(){});
 
           //chdir
           process.chdir(repoName);
