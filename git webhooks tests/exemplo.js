@@ -61,12 +61,12 @@ handler.on('push', function (event) {
           // repo does not exist
           console.log("git repotory does not exists");
 
-          //chdir
-          process.chdir(repoName);
-
           //clone
           console.log("cloning repository: " + repoGitUrl);
           simpleGit.clone(repoGitUrl, localPath, function(){});
+
+          //chdir
+          process.chdir(repoName);
 
           //checkout
           console.log("checking out " + repoBranch);
