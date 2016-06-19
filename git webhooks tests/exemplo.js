@@ -26,8 +26,7 @@ handler.on('push', function (event) {
 
   console.log('Received a push event for %s to %s', repoName, repoRef );
 
-  var simpleGit = require('simple-git')( reposDir );
-
+  var simpleGit = require('simple-git')();
 
   //check if repos folder exists
   fs.access(reposDir, fs.F_OK, function(err) {
@@ -37,49 +36,42 @@ handler.on('push', function (event) {
           mkdirp(reposDir, function(err) {});
       }
   });
-  //chdir to repos dir
-  process.chdir(reposDir);
 
-  //Check if repository is clone
+  //Check if repository is cloned
   fs.access(repoPath, fs.F_OK, function(err) {
     if (!err) {
           // repo exists
-          console.log("git repotory exists");
-
-          //chdir
-          process.chdir(repoName);
-
-          //checkout
-          console.log("checking out " + repoBranch);
-          simpleGit.checkout( repoBranch ,  function(){});
-
-          //pull
-          console.log("pulling from origin " + repoBranch)
-          simpleGit.pull( "origin" , repoBranch ,  function(){});
+          console.log("git repository exists");
+          checkout_and_pull();
 
       } else {
           // repo does not exist
-          console.log("git repotory does not exists");
-
+          console.log("git repository does not exists");
           //clone
           console.log("cloning repository: " + repoGitUrl);
-          simpleGit.clone(repoGitUrl, repoName, function(){});
+          simpleGit.clone(repoGitUrl, repoPath, function(){
+            simpleGit = require('simple-git')(repoPath);
 
-          //chdir
-          process.chdir(repoName);
+            checkout_and_pull();
 
-          //checkout
-          console.log("checking out " + repoBranch);
-          simpleGit.checkout( repoBranch,  function(){});
-
-          //pull
-          console.log("pulling from origin " + repoBranch);
-          simpleGit.pull( "origin" , repoBranch ,  function(){});
+            });
       }
   });
+  
+  function checkout_and_pull(){
+
+    //checkout
+    console.log("checking out " + repoBranch);
+    simpleGit.checkout( repoBranch,  function(){
+      //pull
+      console.log("pulling from origin " + repoBranch);
+      simpleGit.pull( "origin" , repoBranch ,  function(){});
+    });
+  }
+
+});
 
 
-})
 
 handler.on('issues', function (event) {
   console.log('Received an issue event for %s action=%s: #%d %s',
