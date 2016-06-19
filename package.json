@@ -17,6 +17,9 @@
   },
   "homepage": "https://github.com/joaoanes/gitler#readme",
   "dependencies": {
-    "simple-git": "^1.37.0"
+    "bluebird": "^3.4.1",
+    "botkit": "^0.2.1",
+    "jslint": "^0.10.1",
+    "underscore": "^1.8.3"
   }
 }
