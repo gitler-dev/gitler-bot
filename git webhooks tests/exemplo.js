@@ -3,7 +3,20 @@ var createHandler = require('github-webhook-handler');
 var handler = createHandler({ path: '/webhook', secret: 'myhashsecret' });
 var fs = require('fs');
 var process = require("process");
+var SimpleGit = require('simple-git');
 
+var reposDir = "repos";
+
+//check if repos folder exists
+fs.access(reposDir, fs.F_OK, function(err) {
+  if (err) {
+      // repos folder doesnt exist, create it
+      var mkdirp = require('mkdirp');
+      mkdirp(reposDir, function(err) {});
+    }
+});
+
+//start http server
 http.createServer(function (req, res) {
   handler(req, res, function (err) {
     res.statusCode = 404;
@@ -16,8 +29,9 @@ handler.on('error', function (err) {
 });
 
 handler.on('push', function (event) {
-  //RECEIVED PUSH EVENT
-  var reposDir = "repos";
+
+  //--------------------------------------------- RECEIVED PUSH EVENT -----------------------------------------------------
+
   var repoName = event.payload.repository.name;
   var repoPath = reposDir + "/" + repoName;
   var repoRef = event.payload.ref;
@@ -26,16 +40,9 @@ handler.on('push', function (event) {
 
   console.log('Received a push event for %s to %s', repoName, repoRef );
 
-  var simpleGit = require('simple-git')();
+  var simpleGit = SimpleGit(repoPath);
 
-  //check if repos folder exists
-  fs.access(reposDir, fs.F_OK, function(err) {
-    if (err) {
-          // repos folder doesnt exist, create it
-          var mkdirp = require('mkdirp');
-          mkdirp(reposDir, function(err) {});
-      }
-  });
+
 
   //Check if repository is cloned
   fs.access(repoPath, fs.F_OK, function(err) {
@@ -49,22 +56,31 @@ handler.on('push', function (event) {
           //clone
           console.log("cloning repository: " + repoGitUrl);
           simpleGit.clone(repoGitUrl, repoPath, function(){
-              simpleGit = require('simple-git')(repoPath);
+              simpleGit = SimpleGit(repoPath);
               checkout_and_pull();
             });
       }
   });
   
-  function checkout_and_pull(){
+  var checkout_and_pull = function(){
 
     //checkout
     console.log("checking out " + repoBranch);
-    simpleGit.checkout( repoBranch,  function(){
-      //pull
-      console.log("pulling from origin " + repoBranch);
-      simpleGit.pull( "origin" , repoBranch ,  function(){
-        
-      });
+    simpleGit.checkout( repoBranch,  function(err){
+      if(!err){
+        //pull
+        console.log("pulling from origin " + repoBranch);
+        simpleGit.pull( "origin" , repoBranch ,  function(err){
+          if(!err){
+            console.log("pull finished");
+          } else {
+            console.log(err);
+          }
+          
+        });
+      } else {
+        console.log(err);
+      }
     });
   }
 
