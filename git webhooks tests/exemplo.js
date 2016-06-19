@@ -43,17 +43,14 @@ handler.on('push', function (event) {
           // repo exists
           console.log("git repository exists");
           checkout_and_pull();
-
       } else {
           // repo does not exist
           console.log("git repository does not exists");
           //clone
           console.log("cloning repository: " + repoGitUrl);
           simpleGit.clone(repoGitUrl, repoPath, function(){
-            simpleGit = require('simple-git')(repoPath);
-
-            checkout_and_pull();
-
+              simpleGit = require('simple-git')(repoPath);
+              checkout_and_pull();
             });
       }
   });
@@ -65,7 +62,9 @@ handler.on('push', function (event) {
     simpleGit.checkout( repoBranch,  function(){
       //pull
       console.log("pulling from origin " + repoBranch);
-      simpleGit.pull( "origin" , repoBranch ,  function(){});
+      simpleGit.pull( "origin" , repoBranch ,  function(){
+        
+      });
     });
   }
 
