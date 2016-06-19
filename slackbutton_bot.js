@@ -29,7 +29,20 @@ var Botkit = require('botkit');
 var fs = require('fs')
 var _ = require('underscore')
 var gitcli = require('./gitcli.js')
+var Promise = require('bluebird')
 
+function defer() {
+    var resolve, reject;
+    var promise = new Promise(function() {
+        resolve = arguments[0];
+        reject = arguments[1];
+    });
+    return {
+        resolve: resolve,
+        reject: reject,
+        promise: promise
+    };
+}
 
 var controller = Botkit.slackbot({
   json_file_store: './db_slackbutton_bot/',
@@ -107,37 +120,24 @@ controller.hears('^stop','direct_message',function(bot,message) {
 });
 
 var testFunc = function(bot,message) {
+  var fileLintPromises = {}
   var LintStream = require('jslint').LintStream();
 
   bot.startConversation(message, function(err, conv){
+    
+
     LintStream.on('data', function (chunk, encoding, callback) {
-      errors = []
+      var errors = [] 
 
       _(chunk.linted.errors).map(function(e){ 
         if (!e || !e.reason) return false; 
-        debugger
+        
         return {reason: e.reason, evidence: e.evidence} 
       }).forEach(function(e){
-        errors.push("evidence :" + e.evidence + "\nreason :" + e.reason )
+        errors.push( {evidence: e.evidence, reason: e.reason } )
       })
 
-      conv.say("We have " + errors.length + " errors for you. Here's the first")
-
-      if (errors.length > 10)
-        errors = errors.slice(0, 10)
-
-      errors.forEach(function(e){
-        conv.say(e)
-      })
-
-      
-      conv.ask("Ok?", function(response, askConv){
-
-        askConv.say(response.text + "? I don't care either way, go fuck yourself")
-        askConv.next()
-      })
-
-    
+      fileLintPromises[chunk.file].resolve({file: chunk.file, errors: errors})
       
       if (callback)
         callback()
@@ -146,18 +146,58 @@ var testFunc = function(bot,message) {
 
     });
     
+
+
     gitcli.getFilesChangedFromGit(__dirname, "HEAD", "HEAD~1").then(function(files){
-      conv.say("Here's the files you committed:")
+      conv.say("*Here's the files you committed:*")
 
       files.forEach(function(e){
-        conv.say(e.file)
+        if (typeof e.file == "undefined") return false
+
+        conv.say("> *" + e.file + "*")
+        
+        fileLintPromises[e.file] = defer()
+        LintStream.write(e)
       })
-      conv.say("Here's the errors for the first file:")
+
+      conv.say("Processing \n\n")  
+      var promises = _.map(fileLintPromises, function(e){return e.promise})
+
+      Promise.all(promises).then(function(lintResults){
+        
+        lintResults.forEach(function(result){
+          conv.say("\n")
+          conv.say("> *" + result.file + "*" )
+          conv.say("we have " + result.errors.length + " errors here")
+          if (result.errors.length > 3) 
+          {
+            conv.say("How about you fix these 3 first?")
+            result.errors = result.errors.slice(0, 3)
+          }
+
+          result.errors.forEach(function(error) {
+            conv.say('`' + error.evidence + '`')
+            conv.say("> " + error.reason)
+          })
+
+        })
+        
+        }).catch(function(wtf){
+          debugger
+          
+        }).then(function(){
+          conv.ask("\nThat's all! Will you fix these yourself?", function(response, askConv){
+
+            askConv.say(response.text + "? I don't care either way, go fuck yourself")
+            askConv.say("TODO: Let me fix these myself")
+            askConv.next()
+          })
+        })
   
-      LintStream.write(files[0])
+      })
     })
-  
-  })
+
+    
   
   
 }
