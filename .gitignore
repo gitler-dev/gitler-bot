@@ -38,3 +38,6 @@ jspm_packages
 
 #cloned repos
 git webhooks tests/repos
+
+#node modules
+node_modules
