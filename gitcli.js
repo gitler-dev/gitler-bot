@@ -1,9 +1,9 @@
-var simpleGit = require('simple-git')
+var simpleGit = require('./simple-git-factory.js')
 var _ = require('underscore')
 var fs = require('fs')
 var Promise = require('bluebird')
 
-simpleGit.filesChanged
+ 
 
 function getFilesChangedFromGit(repoDir, ref1, ref2) {
 
@@ -23,11 +23,20 @@ function getFilesChangedFromGit(repoDir, ref1, ref2) {
 		
 }
 
-
-
-
-getFilesChangedFromGit(__dirname, "HEAD", "HEAD~10").then(function(files){
-	console.log(files + "ngr")
-})
+function getFilesChanged(repoDir, ref1, ref2,cb) {
+	simpleGit(repoDir).filesChanged(ref1, ref2, function(err, diff){
+	if (err) 
+		cb(null);
+	
+	if (!diff) 
+		cb(null);
+	var filesMap = _.map(diff.files, function(file){
+		return {file: file.file, body: fs.readFileSync(repoDir + '/' + file.file, "utf-8")}
+    })
+	
+	cb(filesMap)
+	})	
+}
 
 exports.getFilesChangedFromGit = getFilesChangedFromGit
+exports.getFilesChanged = getFilesChanged
