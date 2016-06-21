@@ -32,6 +32,14 @@ This is a sample Slack Button application that adds a bot to one or many slack t
     var Promise = require('bluebird')
 
 
+    var supGuys = [ { name: 'esteban', id: 'U1J664G4A' },
+    { name: 'gitler', id: 'U1J5JMS04' },
+    { name: 'gitler2', id: 'U1J5T1WMU' },
+    { name: 'joaoanes', id: 'U1J5S0UGH' },
+    { name: 'jorge', id: 'U1J4EFYP5' },
+    { name: 'slackbot', id: 'USLACKBOT' } ];
+
+
 //defer promies 
 function defer() {
   var resolve, reject;
@@ -46,28 +54,115 @@ function defer() {
   };
 }
 
-var controller = Botkit.slackbot({
-  json_file_store: './db_slackbutton_bot/',
-}).configureSlackApp(
-{
-  clientId: "52190302359.52209798785",
+
+
+function startSlackApp() {
+
+  var controller = Botkit.slackbot({
+    json_file_store: './db_slackbutton_bot/',
+  }).configureSlackApp(
+  {
+    clientId: "52190302359.52209798785",
     clientSecret: "94822d98f44095d1e5606af506f11e98", //refresh these tokens when publishing :)
     scopes: ['bot'],
   }
   );
+  controller.setupWebserver(3000,function(err,webserver) {
+    controller.createWebhookEndpoints(controller.webserver);
 
-controller.setupWebserver(3000,function(err,webserver) {
-  controller.createWebhookEndpoints(controller.webserver);
-
-  controller.createOauthEndpoints(controller.webserver,function(err,req,res) {
-    if (err) {
-      res.status(500).send('ERROR: ' + err);
-    } else {
-      res.send('Success!');
-    }
+    controller.createOauthEndpoints(controller.webserver,function(err,req,res) {
+      if (err) {
+        res.status(500).send('ERROR: ' + err);
+      } else {
+        res.send('Success!');
+      }
+    });
   });
-});
 
+  controller.on('create_bot',function(bot,config) {
+
+    if (_bots[bot.config.token]) {
+    // already online! do nothing.
+    } 
+    else {
+      bot.startRTM(function(err) {
+
+        if (!err) {
+          trackBot(bot);
+        }
+
+        bot.startPrivateConversation({user: config.createdBy},function(err,convo) {
+          if (err) {
+            console.log(err);
+          } else {
+            convo.say('I am a bot that has just joined your team');
+            convo.say('You must now /invite me to a channel so that I can be of use!');
+          }
+        });
+
+      });
+    }
+
+  });
+
+
+// Handle events related to the websocket connection to Slack
+  controller.on('rtm_open',function(bot) {
+    console.log('** The RTM api just connected!');
+  });
+
+  controller.on('rtm_close',function(bot) {
+    console.log('** The RTM api just closed');
+    // you may want to attempt to re-open
+  });
+
+  controller.hears('hello','direct_message',function(bot,message) {
+    bot.reply(message,'Hello!');
+  });
+
+  controller.hears('^stop','direct_message',function(bot,message) {
+    bot.reply(message,'Goodbye');
+    bot.rtm.close();
+  });
+
+  controller.hears('lint',['direct_message', 'direct_mention'], function(){
+    sendLintResultToUserWithEmail("nullstring")
+  });
+
+  controller.on(['direct_message','mention','direct_mention'],function(bot,message) {
+    bot.api.reactions.add({
+      timestamp: message.ts,
+      channel: message.channel,
+      name: 'robot_face',
+    },function(err) {
+      if (err) { console.log(err) }
+        bot.reply(message,'I heard you loud and clear boss.');
+    });
+  });
+
+  controller.storage.teams.all(function(err,teams) {
+
+    if (err) {
+      throw new Error(err);
+    }
+
+    // connect all teams with bots up to slack!
+    for (var t  in teams) {
+      if (teams[t].bot) {
+        controller.spawn(teams[t]).startRTM(function(err, bot) {
+          if (err) {
+            console.log('Error connecting bot to Slack:',err);
+          } else {
+            trackBot(bot);
+          }
+        });
+      }
+    }
+
+  });
+
+
+}
 
 
 // just a simple way to make sure we don't
@@ -75,110 +170,67 @@ controller.setupWebserver(3000,function(err,webserver) {
 var _bots = {};
 function trackBot(bot) {
   var promises = []
-  // @ https://api.slack.com/methods/users.list
   promises.push(new Promise(function(res, rej){
     bot.api.users.list({}, function (err, response) {
-        var fullTeamList = []
-        if (response.hasOwnProperty('members') && response.ok) {
-            var total = response.members.length;
-            for (var i = 0; i < total; i++) {
-                var member = response.members[i];
-                fullTeamList.push({name: member.name, id: member.id});
-            }
-
-            res(fullTeamList)
+      var fullTeamList = []
+      if (response.hasOwnProperty('members') && response.ok) {
+        var total = response.members.length;
+        for (var i = 0; i < total; i++) {
+          var member = response.members[i];
+          fullTeamList.push({name: member.name, id: member.id});
         }
+
+        res(fullTeamList)
+      }
     });
   }))
 
   promises.push(new Promise(function(res, rej){
-  // @ https://api.slack.com/methods/channels.list
     bot.api.channels.list({}, function (err, response) {
-        if (response.hasOwnProperty('channels') && response.ok) {
-            var total = response.channels.length;
-            var fullChannelsList = []
-            for (var i = 0; i < total; i++) {
-                var channel = response.channels[i];
-                fullChannelsList.push({name: channel.name, id: channel.id});
-            }
-
-            res(fullChannelsList)
+      if (response.hasOwnProperty('channels') && response.ok) {
+        var total = response.channels.length;
+        var fullChannelsList = []
+        for (var i = 0; i < total; i++) {
+          var channel = response.channels[i];
+          fullChannelsList.push({name: channel.name, id: channel.id});
         }
+
+        res(fullChannelsList)
+      }
     });
   }))
 
 
   Promise.all(promises).then(function(results) {
     _bots[bot.config.token] = {bot: bot,
-                               team: results[0],
-                               channels: results[1]};
+     team: results[0],
+     channels: results[1]};
 
-    bot.say({text: "No.", channel: results[1][0]["id"]})
-  })
+     bot.say({text: "No.", channel: results[1][0]["id"]})
+   })
 }
 
-controller.on('create_bot',function(bot,config) {
-
-  if (_bots[bot.config.token]) {
-    // already online! do nothing.
-  } else {
-    bot.startRTM(function(err) {
-
-      if (!err) {
-        trackBot(bot);
-      }
-
-      bot.startPrivateConversation({user: config.createdBy},function(err,convo) {
-        if (err) {
-          console.log(err);
-        } else {
-          convo.say('I am a bot that has just joined your team');
-          convo.say('You must now /invite me to a channel so that I can be of use!');
-        }
-      });
-
-    });
-  }
-
-});
 
 
-// Handle events related to the websocket connection to Slack
-controller.on('rtm_open',function(bot) {
-  console.log('** The RTM api just connected!');
-});
+function sendLintResultToUserWithEmail(email, gitPath, shaBefore, shaAfter) {
 
-controller.on('rtm_close',function(bot) {
-  console.log('** The RTM api just closed');
-  // you may want to attempt to re-open
-});
-
-controller.hears('hello','direct_message',function(bot,message) {
-  bot.reply(message,'Hello!');
-});
-
-controller.hears('^stop','direct_message',function(bot,message) {
-  bot.reply(message,'Goodbye');
-  bot.rtm.close();
-});
-
-//respondToMessageWith lintResult bot.startPrivateConversation({user: config.createdBy},function(err,convo) {
-
-function sendLintResultTo(email) {
   //we need to find the user with that email, but let's go by me now
+  var userId = _.where(supGuys, {name: 'joaoanes'})[0].id;
+  
   //we also need to find that email's team to find that team's bot
+  var botOfUserTeam = _bots[Object.keys(_bots)[0]]["bot"];
 
-  bot = _bots[Object.keys(_bots)[0]]["bot"]
-  startConversationAndSendLintResult(bot, {text: "Hello!", user: "U1J5S0UGH"})
+  //and then we go!
+  startConversationAndSendLintResultOf(botOfUserTeam, userId, gitPath, shaBefore, shaAfter)
 }
 
-var startConversationAndSendLintResult = function(bot,message) {
+var startConversationAndSendLintResultOf = function(bot, user, gitRepoPath, shaBefore, shaAfter) {
   var fileLintPromises = {}
   var LintStream = require('jslint').LintStream();
   debugger
-  bot.startPrivateConversation({user: message.user}, function(err, conv){
+  bot.startPrivateConversation({user: user}, function(err, conv){
 
-    gitcli.getFilesChangedFromGit(__dirname, "HEAD", "HEAD~1").then(function(files){
+    gitcli.getFilesChangedFromGit(gitRepoPath, shaAfter, shaBefore).then(function(files){
       conv.say("*Here's the files you committed:*")
 
       files.forEach(function(e){
@@ -241,50 +293,13 @@ var startConversationAndSendLintResult = function(bot,message) {
       
       if (callback)
         callback()
-      
-
-
     });
-
   })
 
-
-  
-  
 }
 
-controller.hears('lint',['direct_message', 'direct_mention'], function(){
-  sendLintResultTo("nullstring")
-});
 
-controller.on(['direct_message','mention','direct_mention'],function(bot,message) {
-  bot.api.reactions.add({
-    timestamp: message.ts,
-    channel: message.channel,
-    name: 'robot_face',
-  },function(err) {
-    if (err) { console.log(err) }
-      bot.reply(message,'I heard you loud and clear boss.');
-  });
-});
+//startSlackApp()
 
-controller.storage.teams.all(function(err,teams) {
 
-  if (err) {
-    throw new Error(err);
-  }
-
-  // connect all teams with bots up to slack!
-  for (var t  in teams) {
-    if (teams[t].bot) {
-      controller.spawn(teams[t]).startRTM(function(err, bot) {
-        if (err) {
-          console.log('Error connecting bot to Slack:',err);
-        } else {
-          trackBot(bot);
-        }
-      });
-    }
-  }
-
-});
+module.exports = {sendLintResultTo: sendLintResultToUserWithEmail, startWebServer: startSlackApp}
